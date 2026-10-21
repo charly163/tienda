@@ -19,3 +19,4 @@ th{font-size:11px}td{font-size:14px}
 .sidebar-bottom{font-size:13px}footer{font-size:12px}
 @media(max-width:620px){.nav-link{font-size:13px}.welcome h2{font-size:25px}.list-head .button{font-size:13px}}
 
+.status-dot.offline{background:#d46b62}

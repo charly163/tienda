@@ -65,9 +65,10 @@ function redirect_to(string $entity, string $message, string $type='success'): v
 
 $entity = isset($_GET['entity']) && isset($entities[$_GET['entity']]) ? $_GET['entity'] : 'dashboard';
 $action = $_GET['action'] ?? 'list';
-$error = null; $rows = []; $record = []; $counts = [];
+$error = null; $rows = []; $viewRows = []; $record = []; $counts = []; $dbConnected = false;
 try {
     db();
+    $dbConnected = true;
     if ($entity === 'dashboard') {
         foreach ($entities as $key=>$meta) $counts[$key] = (int)db()->query("SELECT COUNT(*) FROM `$key`")->fetchColumn();
         $rows = db()->query('SELECT v.id,v.fecha,v.total,v.metodo_pago,c.nombre AS cliente FROM ventas v LEFT JOIN clientes c ON c.id=v.cliente_id ORDER BY v.id DESC LIMIT 6')->fetchAll();
@@ -125,8 +126,13 @@ try {
         }
     }
 } catch (Throwable $ex) {
-    $error = $ex instanceof PDOException ? 'No se pudo completar la operación. Revisá la conexión o las relaciones asociadas.' : $ex->getMessage();
-    if ($ex instanceof PDOException && (int)$ex->getCode()===23000) $error='No se puede eliminar este registro porque está relacionado con otros datos.';
+    if ($ex instanceof PDOException) {
+        $error = 'No se pudo conectar a la base de datos. Configurá DB_HOST, DB_NAME, DB_USER y DB_PASS en Render, y verificá que la base permita conexiones desde Render.';
+        if ((int)$ex->getCode()===23000) $error='No se puede eliminar este registro porque está relacionado con otros datos.';
+        elseif ((string)$ex->getCode()==='42S02') $error='La base de datos se conectó, pero faltan las tablas de TechStore. Importá el esquema SQL.';
+    } else {
+        $error = $ex->getMessage();
+    }
 }
 $flash=$_SESSION['flash'] ?? null; unset($_SESSION['flash']);
 ?>
@@ -139,7 +145,7 @@ $flash=$_SESSION['flash'] ?? null; unset($_SESSION['flash']);
     <div class="nav-label">MENÚ PRINCIPAL</div>
     <nav><a class="nav-link <?= $entity==='dashboard'?'active':'' ?>" href="?"><span>⌂</span>Resumen</a>
     <?php foreach($entities as $key=>$item): ?><a class="nav-link <?= $entity===$key?'active':'' ?>" href="?entity=<?= e($key) ?>"><span><?= e($item['icon']) ?></span><?= e($item['label']) ?></a><?php endforeach; ?></nav>
-    <div class="sidebar-bottom"><span class="status-dot"></span>Base de datos conectada</div>
+    <div class="sidebar-bottom"><span class="status-dot <?= $dbConnected ? '' : 'offline' ?>"></span><?= $dbConnected ? 'Base de datos conectada' : 'Base de datos sin configurar' ?></div>
 </aside>
 <main class="main">
     <header class="topbar"><div><span class="eyebrow">PANEL DE CONTROL</span><h1><?= $entity==='dashboard'?'Resumen':e($entities[$entity]['label']) ?></h1></div><div class="avatar">TS</div></header>
